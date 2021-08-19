@@ -24,6 +24,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Builder {
     pub port: u16,
+    pub upstream_addr: Option<String>,
     pub source: Source,
     pub admin: Admin,
 }
@@ -33,6 +34,7 @@ impl Builder {
     pub fn empty() -> Self {
         Builder {
             port: 0,
+            upstream_addr: Default::default(),
             admin: Admin::default(),
             source: Source::Static {
                 filters: vec![],
@@ -60,6 +62,7 @@ impl Builder {
             proxy: Proxy {
                 id: "test".into(),
                 port: self.port,
+                upstream_addr: self.upstream_addr,
             },
             admin: self.admin,
             source: self.source,

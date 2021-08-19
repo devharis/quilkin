@@ -109,6 +109,8 @@ pub struct Proxy {
     pub id: String,
     #[serde(default = "default_proxy_port")]
     pub port: u16,
+    #[serde(default)]
+    pub upstream_addr: Option<String>,
 }
 
 fn default_proxy_id() -> String {
@@ -124,6 +126,7 @@ impl Default for Proxy {
         Proxy {
             id: default_proxy_id(),
             port: default_proxy_port(),
+            upstream_addr: Default::default(),
         }
     }
 }
