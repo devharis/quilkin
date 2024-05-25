@@ -102,6 +102,8 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::RunArgs;
 <span class="kw">use </span><span class="kw">crate</span>::config::{IcaoCode, Providers};
 <span class="kw">pub use </span><span class="kw">crate</span>::net::{endpoint::Locality, DualStackLocalSocket};
@@ -112,7 +114,6 @@
 
 <span class="attr">#[derive(Clone, Debug, Default)]
 </span><span class="kw">pub struct </span>Ready {
-    <span class="kw">pub </span>idle_request_interval: std::time::Duration,
     <span class="kw">pub </span>provider_is_healthy: Arc&lt;AtomicBool&gt;,
     <span class="kw">pub </span>relay_is_healthy: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// If true, only care about the provider being healthy, not the relay
@@ -133,6 +134,7 @@
     <span class="kw">pub </span>icao_code: <span class="prelude-ty">Option</span>&lt;IcaoCode&gt;,
     <span class="kw">pub </span>relay_servers: Vec&lt;tonic::transport::Endpoint&gt;,
     <span class="kw">pub </span>provider: <span class="prelude-ty">Option</span>&lt;Providers&gt;,
+    <span class="kw">pub </span>address_selector: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::config::AddressSelector&gt;,
 }
 
 <span class="kw">impl </span>Agent {
@@ -159,11 +161,13 @@
         }
 
         <span class="kw">let </span>_mds_task = <span class="kw">if </span>!<span class="self">self</span>.relay_servers.is_empty() {
-            <span class="kw">let </span>_provider_task = <span class="kw">match </span><span class="self">self</span>.provider.as_ref() {
+            <span class="kw">let </span>_provider_task = <span class="kw">match </span><span class="self">self</span>.provider {
                 <span class="prelude-val">Some</span>(provider) =&gt; <span class="prelude-val">Some</span>(provider.spawn(
                     config.clone(),
                     ready.provider_is_healthy.clone(),
                     <span class="self">self</span>.locality,
+                    <span class="self">self</span>.address_selector,
+                    <span class="bool-val">true</span>,
                 )),
                 <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">eyre::eyre!</span>(<span class="string">"no configuration provider given"</span>)),
             };
@@ -186,10 +190,10 @@
 
                     <span class="comment">// Attempt to connect to a delta stream if the relay has one
                     // available, otherwise fallback to the regular aggregated stream
-                    </span><span class="prelude-val">Some</span>(<span class="kw">match </span>client.delta_stream(config.clone(), ready.clone()).<span class="kw">await </span>{
+                    </span><span class="prelude-val">Some</span>(<span class="kw">match </span>client.delta_stream(config.clone(), ready.relay_is_healthy.clone()).<span class="kw">await </span>{
                         <span class="prelude-val">Ok</span>(ds) =&gt; XdsTask::Delta(ds),
                         <span class="prelude-val">Err</span>(client) =&gt; {
-                            XdsTask::Aggregated(client.mds_client_stream(config, ready))
+                            XdsTask::Aggregated(client.mds_client_stream(config, ready.relay_is_healthy.clone()))
                         }
                     })
                 }
